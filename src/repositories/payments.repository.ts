@@ -13,10 +13,14 @@ const PAYMENT_SELECT = `SELECT
   id,
   order_id AS orderId,
   user_id AS userId,
+  payment_method AS paymentMethod,
   telegram_payment_charge_id AS telegramPaymentChargeId,
   telegram_invoice_payload AS telegramInvoicePayload,
   telegram_currency AS telegramCurrency,
   amount_xtr AS amountXtr,
+  provider_invoice_id AS providerInvoiceId,
+  provider_currency AS providerCurrency,
+  provider_amount AS providerAmount,
   status,
   provider_data AS providerData,
   idempotency_key AS idempotencyKey,
@@ -46,28 +50,36 @@ export class PaymentsRepository {
   async create(input: {
     orderId: string;
     userId: string;
+    paymentMethod: Payment["paymentMethod"];
     telegramInvoicePayload: string;
     amountXtr: number;
     idempotencyKey: string;
     pricingSnapshot: PricingSnapshot;
+    providerInvoiceId?: string | null;
+    providerCurrency?: string | null;
+    providerAmount?: string | null;
     providerData?: Record<string, unknown>;
     now: string;
   }): Promise<Payment> {
     const id = createId("pay");
     await this.db.run(
       `INSERT INTO payments (
-        id, order_id, user_id, telegram_payment_charge_id, telegram_invoice_payload, telegram_currency,
-        amount_xtr, status, provider_data, idempotency_key, pricing_snapshot, failure_code,
-        failure_reason, created_at, updated_at, succeeded_at
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        id, order_id, user_id, payment_method, telegram_payment_charge_id, telegram_invoice_payload, telegram_currency,
+        amount_xtr, provider_invoice_id, provider_currency, provider_amount, status, provider_data, idempotency_key, pricing_snapshot,
+        failure_code, failure_reason, created_at, updated_at, succeeded_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         id,
         input.orderId,
         input.userId,
+        input.paymentMethod,
         null,
         input.telegramInvoicePayload,
         "XTR",
         input.amountXtr,
+        input.providerInvoiceId ?? null,
+        input.providerCurrency ?? null,
+        input.providerAmount ?? null,
         "created",
         encodeJson(input.providerData ?? {}),
         input.idempotencyKey,
@@ -98,6 +110,14 @@ export class PaymentsRepository {
 
   async findByInvoicePayload(payload: string): Promise<Payment | null> {
     const row = await this.db.first<PaymentRow>(`${PAYMENT_SELECT} WHERE telegram_invoice_payload = ?`, [payload]);
+    return mapPayment(row);
+  }
+
+  async findByProviderInvoiceId(paymentMethod: Payment["paymentMethod"], providerInvoiceId: string): Promise<Payment | null> {
+    const row = await this.db.first<PaymentRow>(
+      `${PAYMENT_SELECT} WHERE payment_method = ? AND provider_invoice_id = ? ORDER BY created_at DESC LIMIT 1`,
+      [paymentMethod, providerInvoiceId],
+    );
     return mapPayment(row);
   }
 

@@ -4,6 +4,7 @@ import type { D1Runner } from "@infra/db";
 import type { KvStore } from "@infra/kv";
 import type { Logger } from "@infra/logger";
 import type { Clock } from "@infra/time";
+import type { CryptoPayGateway } from "@infra/crypto-pay";
 import type { TelegramGateway } from "@infra/telegram";
 import type { AbuseEventsRepository } from "@repositories/abuse-events.repository";
 import type { AdminsRepository } from "@repositories/admins.repository";
@@ -42,6 +43,7 @@ export interface ServiceDeps {
   logger: Logger;
   clock: Clock;
   telegram: TelegramGateway;
+  cryptoPay: CryptoPayGateway;
   repositories: Repositories;
 }
 

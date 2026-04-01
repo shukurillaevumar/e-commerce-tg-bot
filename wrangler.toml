@@ -5,6 +5,16 @@ workers_dev = true
 
 [vars]
 APP_ENV = "development"
+BOT_WEBHOOK_PATH = "/webhook"
+BOT_USERNAME = "replace_me_bot"
+CRYPTO_PAY_WEBHOOK_PATH = "/webhook/crypto-pay/replace-me"
+CRYPTO_PAY_API_BASE_URL = "https://pay.crypt.bot/api"
+CRYPTO_PAY_ACCEPTED_ASSETS = "USDT,TON"
+CRYPTO_PAY_SWAP_TO = "USDT"
+APP_TIMEZONE = "Asia/Tashkent"
+DEFAULT_LANGUAGE = "ru"
+PAYMENT_CURRENCY = "XTR"
+DEFAULT_EXCHANGE_RATE_RUB_PER_XTR = "1"
 
 [observability]
 enabled = true
@@ -28,7 +38,16 @@ name = "telegram-stars-store-bot-staging"
 [env.staging.vars]
 APP_ENV = "staging"
 BOT_WEBHOOK_PATH = "/webhook"
-CATALOG_IMAGE_URL = "https://<your-domain>/catalog.png"
+BOT_USERNAME = "replace_me_bot"
+CRYPTO_PAY_WEBHOOK_PATH = "/webhook/crypto-pay/replace-me"
+CRYPTO_PAY_API_BASE_URL = "https://pay.crypt.bot/api"
+CRYPTO_PAY_ACCEPTED_ASSETS = "USDT,TON"
+CRYPTO_PAY_SWAP_TO = "USDT"
+APP_TIMEZONE = "Asia/Tashkent"
+DEFAULT_LANGUAGE = "ru"
+PAYMENT_CURRENCY = "XTR"
+DEFAULT_EXCHANGE_RATE_RUB_PER_XTR = "1"
+CATALOG_IMAGE_URL = "https://cdn.jsdelivr.net/gh/shukurillaevumar/e-commerce-tg-bot@main/public/CatalogImg.png"
 
 
 [[env.staging.kv_namespaces]]
@@ -50,8 +69,16 @@ name = "telegram-stars-store-bot-production"
 [env.production.vars]
 APP_ENV = "production"
 BOT_WEBHOOK_PATH = "/webhook"
-CATALOG_IMAGE_URL = "https://<your-domain>/catalog.png"
-
+BOT_USERNAME = "replace_me_bot"
+CRYPTO_PAY_WEBHOOK_PATH = "/webhook/crypto-pay/replace-me"
+CRYPTO_PAY_API_BASE_URL = "https://pay.crypt.bot/api"
+CRYPTO_PAY_ACCEPTED_ASSETS = "USDT,TON"
+CRYPTO_PAY_SWAP_TO = "USDT"
+APP_TIMEZONE = "Asia/Tashkent"
+DEFAULT_LANGUAGE = "ru"
+PAYMENT_CURRENCY = "XTR"
+DEFAULT_EXCHANGE_RATE_RUB_PER_XTR = "1"
+CATALOG_IMAGE_URL = "https://cdn.jsdelivr.net/gh/shukurillaevumar/e-commerce-tg-bot@main/public/CatalogImg.png"
 
 [[env.production.kv_namespaces]]
 binding = "APP_KV"

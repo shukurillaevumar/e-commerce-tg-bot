@@ -1,5 +1,6 @@
 import { createBot } from "@bot/build-bot";
 import type { Env } from "@infra/bindings";
+import type { CryptoPayInvoicePaidUpdate } from "@infra/crypto-pay";
 import { text, toErrorResponse } from "@infra/http";
 import { createLogger } from "@infra/logger";
 import { createServiceContainer } from "@services/container";
@@ -13,6 +14,7 @@ async function handleFetch(request: Request, env: Env): Promise<Response> {
   await services.bootstrapService.bootstrap();
 
   const webhookPath = env.BOT_WEBHOOK_PATH || "/webhook/telegram";
+  const cryptoWebhookPath = env.CRYPTO_PAY_WEBHOOK_PATH;
   const { webhook } = createBot(env);
   const url = new URL(request.url);
 
@@ -22,6 +24,25 @@ async function handleFetch(request: Request, env: Env): Promise<Response> {
       return new Response("forbidden", { status: 403 });
     }
     return webhook(request);
+  }
+
+  if (request.method === "POST" && cryptoWebhookPath && url.pathname === cryptoWebhookPath) {
+    if (!services.deps.cryptoPay.isEnabled()) {
+      return new Response("not configured", { status: 503 });
+    }
+
+    const body = await request.text();
+    const signature = request.headers.get("crypto-pay-api-signature");
+    const isValid = await services.deps.cryptoPay.verifyWebhookSignature(body, signature);
+    if (!isValid) {
+      return new Response("forbidden", { status: 403 });
+    }
+
+    const update = JSON.parse(body) as CryptoPayInvoicePaidUpdate;
+    if (update.update_type === "invoice_paid") {
+      await services.paymentService.handleCryptoPayInvoicePaid(update);
+    }
+    return text("ok");
   }
 
   return new Response("not found", { status: 404 });

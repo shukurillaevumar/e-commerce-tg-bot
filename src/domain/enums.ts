@@ -37,6 +37,8 @@ export const PAYMENT_STATUSES = [
   "cancelled",
 ] as const;
 
+export const PAYMENT_METHODS = ["telegram_stars", "crypto_bot"] as const;
+
 export const FULFILLMENT_STATUSES = [
   "pending",
   "processing",
@@ -126,6 +128,7 @@ export type OrderCancellationReason = (typeof ORDER_CANCELLATION_REASONS)[number
 export type OrderReviewStatus = (typeof ORDER_REVIEW_STATUSES)[number];
 export type AdminRole = (typeof ADMIN_ROLES)[number];
 export type PaymentStatus = (typeof PAYMENT_STATUSES)[number];
+export type PaymentMethod = (typeof PAYMENT_METHODS)[number];
 export type FulfillmentStatus = (typeof FULFILLMENT_STATUSES)[number];
 export type FulfillmentStrategy = (typeof FULFILLMENT_STRATEGIES)[number];
 export type FulfillmentResultType = (typeof FULFILLMENT_RESULT_TYPES)[number];

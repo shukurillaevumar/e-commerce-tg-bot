@@ -1,4 +1,5 @@
 import type { Env } from "@infra/bindings";
+import { HttpCryptoPayGateway } from "@infra/crypto-pay";
 import { CloudflareD1Runner } from "@infra/db";
 import { CloudflareKvStore } from "@infra/kv";
 import { createLogger } from "@infra/logger";
@@ -25,8 +26,8 @@ import { FulfillmentService } from "@services/fulfillment.service";
 import { FraudService } from "@services/fraud.service";
 import { IdempotencyService } from "@services/idempotency.service";
 import { NotificationsService } from "@services/notifications.service";
-import { OrderService } from "@services/order.service";
-import { PaymentService } from "@services/payment.service";
+import { OrderService } from "@services/order-next.service";
+import { PaymentService } from "@services/payment-next.service";
 import { PricingService } from "@services/pricing.service";
 import { SettingsService } from "@services/settings.service";
 import { SupportService } from "@services/support.service";
@@ -57,6 +58,12 @@ export function createServiceContainer(env: Env): ServiceContainer {
   const db = new CloudflareD1Runner(env.BOT_DB);
   const kv = new CloudflareKvStore(env.APP_KV, logger);
   const telegram = new BotApiTelegramGateway(env.BOT_TOKEN);
+  const cryptoPay = new HttpCryptoPayGateway(
+    env.CRYPTO_PAY_API_TOKEN,
+    env.CRYPTO_PAY_API_BASE_URL,
+    env.CRYPTO_PAY_ACCEPTED_ASSETS,
+    env.CRYPTO_PAY_SWAP_TO,
+  );
 
   const repositories: Repositories = {
     users: new UsersRepository(db),
@@ -81,6 +88,7 @@ export function createServiceContainer(env: Env): ServiceContainer {
     logger,
     clock: systemClock,
     telegram,
+    cryptoPay,
     repositories,
   };
 

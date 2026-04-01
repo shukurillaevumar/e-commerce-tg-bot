@@ -29,3 +29,26 @@ export function buildProductKeyboard(_productId: string, variantButtons: Array<{
   keyboard.text("🏠 Главное меню", encodeCallbackData("menu_home"));
   return keyboard;
 }
+
+export function buildPaymentMethodKeyboard(
+  variantId: string,
+  options: {
+    allowTelegramStars: boolean;
+    allowCryptoBot: boolean;
+  },
+): InlineKeyboard {
+  const keyboard = new InlineKeyboard();
+  if (options.allowTelegramStars) {
+    keyboard.text("⭐ Telegram Stars", encodeCallbackData("checkout_pay", variantId, "telegram_stars")).row();
+  }
+  if (options.allowCryptoBot) {
+    keyboard.text("💎 Crypto Bot", encodeCallbackData("checkout_pay", variantId, "crypto_bot")).row();
+  }
+  keyboard.text("⬅️ Назад", encodeCallbackData("checkout_back", variantId)).row();
+  keyboard.text("🏠 Главное меню", encodeCallbackData("menu_home"));
+  return keyboard;
+}
+
+export function buildCryptoInvoiceKeyboard(url: string): InlineKeyboard {
+  return new InlineKeyboard().url("💎 Оплатить в Crypto Bot", url).row().text("🏠 Главное меню", encodeCallbackData("menu_home"));
+}

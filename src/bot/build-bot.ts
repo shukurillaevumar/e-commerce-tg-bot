@@ -5,7 +5,7 @@ import { activeUiMessageKey } from "@infra/kv";
 import { createServiceContainer, type ServiceContainer } from "@services/container";
 import type { Env } from "@infra/bindings";
 import type { BotContext } from "@bot/context";
-import { buildCatalogKeyboard, buildMainMenuKeyboard, buildProductKeyboard } from "@bot/keyboards";
+import { buildCatalogKeyboard, buildCryptoInvoiceKeyboard, buildMainMenuKeyboard, buildPaymentMethodKeyboard, buildProductKeyboard } from "@bot/keyboards-v2";
 import { decodeCallbackData } from "@utils/callback-data";
 
 const ACTIVE_UI_TTL_SECONDS = 60 * 60 * 24 * 14;
@@ -191,13 +191,14 @@ async function checkoutVariant(ctx: BotContext, variantId: string): Promise<void
   const updatedOrder = await ctx.services.orderService.issueInvoice({
     user: ctx.appUser,
     orderId: order.id,
+    paymentMethod: "telegram_stars",
     variant,
   });
 
   await ctx.reply(
-    `${uiText.checkout}\n\nЗаказ: ${updatedOrder.publicId}\n` +
-      `Цена: ${updatedOrder.pricingSnapshot.rubPriceFinal} RUB\n` +
-      `К оплате: ${updatedOrder.pricingSnapshot.xtrPrice} XTR\n\n` +
+    `${uiText.checkout}\n\nЗаказ: ${updatedOrder.order.publicId}\n` +
+      `Цена: ${updatedOrder.order.pricingSnapshot.rubPriceFinal} RUB\n` +
+      `К оплате: ${updatedOrder.order.pricingSnapshot.xtrPrice} XTR\n\n` +
       `Оплата производится через Telegram Stars`,
   );
 }
@@ -212,7 +213,7 @@ async function renderHistory(ctx: BotContext): Promise<void> {
     return;
   }
 
-  const lines = ["История заказов:\n"];
+  const lines = ["📦 История заказов:\n"];
   for (const order of orders) {
     lines.push(
       `• ${order.publicId} — ${order.status}\n` +
@@ -230,16 +231,16 @@ async function renderProfile(ctx: BotContext): Promise<void> {
 
   await ctx.reply(
     `${uiText.profile}\n\n` +
-      `Telegram ID: ${ctx.appUser.telegramId}\n` +
-      `Статус риска: ${ctx.appUser.riskLevel}\n` +
-      `Реферальный код: ${ctx.appUser.referralCode}`,
+      `🆔 Telegram ID: ${ctx.appUser.telegramId}\n` +
+      `🛡️ Статус риска: ${ctx.appUser.riskLevel}\n` +
+      `🎟️ Реферальный код: ${ctx.appUser.referralCode}`,
     { reply_markup: buildMainMenuKeyboard() },
   );
 }
 
 async function renderSupport(ctx: BotContext): Promise<void> {
   await ctx.reply(
-    `${uiText.supportIntro}\n\nФормат для открытия обращения:\n/support Тема | Описание`,
+    `${uiText.supportIntro}\n\n📝 Формат для открытия обращения:\n/support Тема | Описание`,
     { reply_markup: buildMainMenuKeyboard() },
   );
 }
@@ -253,13 +254,13 @@ async function renderAdmin(ctx: BotContext): Promise<void> {
   const summary = await ctx.services.adminService.getDashboardSummary();
   await ctx.reply(
     `${adminText.dashboard}\n\n` +
-      `Manual review: ${summary.manualReviewCount}\n` +
-      `Текущий курс: ${summary.currentRate ? `${(summary.currentRate as { rateRubPerStar: number }).rateRubPerStar} RUB/XTR` : "не задан"}`,
+      `🛡️ Manual review: ${summary.manualReviewCount}\n` +
+      `💱 Текущий курс: ${summary.currentRate ? `${(summary.currentRate as { rateRubPerStar: number }).rateRubPerStar} RUB/XTR` : "не задан"}`,
     {
       reply_markup: new InlineKeyboard()
-        .text("Главное меню", "menu_home")
+        .text("🏠 Главное меню", "menu_home")
         .row()
-        .text("Обновить курс", "admin_rate_help"),
+        .text("💱 Обновить курс", "admin_rate_help"),
     },
   );
 }
@@ -315,6 +316,117 @@ async function renderProductUi(ctx: BotContext, productId: string): Promise<void
   await renderUiScreen(ctx, lines.join("\n"), buildProductKeyboard(productId, buttons));
 }
 
+async function renderCheckoutMethodUi(ctx: BotContext, variantId: string): Promise<void> {
+  if (!ctx.appUser) {
+    return;
+  }
+
+  const variant = await ctx.services.repositories.products.findVariantById(variantId);
+  if (!variant) {
+    await renderUiScreen(ctx, "Пакет не найден.", buildMainMenuKeyboard());
+    return;
+  }
+
+  const quote = await ctx.services.pricingService.quoteVariant({
+    variantId: variant.id,
+    user: ctx.appUser,
+  });
+
+  const allowTelegramStars = true;
+  const allowCryptoBot = ctx.services.deps.cryptoPay.isEnabled();
+  const paymentLines = [
+    `${uiText.checkout}`,
+    "",
+    `Пакет: ${variant.title}`,
+    `Цена: ${quote.snapshot.rubPriceFinal} RUB`,
+    `⭐ Telegram Stars: ${quote.snapshot.xtrPrice} XTR`,
+  ];
+  if (allowCryptoBot) {
+    paymentLines.push("💎 Crypto Bot: оплата в криптовалюте по инвойсу");
+  }
+  paymentLines.push("", "Выберите удобный способ оплаты:");
+
+  await renderUiScreen(
+    ctx,
+    paymentLines.join("\n"),
+    buildPaymentMethodKeyboard(variantId, {
+      allowTelegramStars,
+      allowCryptoBot,
+    }),
+  );
+}
+
+async function startCheckoutWithMethodUi(ctx: BotContext, variantId: string, paymentMethod: "telegram_stars" | "crypto_bot"): Promise<void> {
+  if (!ctx.appUser) {
+    return;
+  }
+
+  if (paymentMethod === "crypto_bot" && !ctx.services.deps.cryptoPay.isEnabled()) {
+    await renderUiScreen(ctx, "Оплата через Crypto Bot пока недоступна.", buildMainMenuKeyboard());
+    return;
+  }
+
+  const variant = await ctx.services.repositories.products.findVariantById(variantId);
+  if (!variant) {
+    await renderUiScreen(ctx, "Пакет не найден.", buildMainMenuKeyboard());
+    return;
+  }
+
+  const { order } = await ctx.services.orderService.createCheckoutOrder({
+    user: ctx.appUser,
+    variantId,
+  });
+
+  if (order.requiresManualReview) {
+    await renderUiScreen(ctx, uiText.suspiciousBlocked, buildMainMenuKeyboard());
+    return;
+  }
+
+  const uiMessageId = currentUiMessageId(ctx);
+  if (uiMessageId !== null && ctx.chat) {
+    try {
+      await ctx.api.deleteMessage(ctx.chat.id, uiMessageId);
+    } catch {
+      // Ignore stale message deletion errors before checkout.
+    }
+  } else {
+    await deleteTrackedUiMessage(ctx);
+  }
+  await clearActiveUiMessage(ctx);
+
+  const issued = await ctx.services.orderService.issueInvoice({
+    user: ctx.appUser,
+    orderId: order.id,
+    paymentMethod,
+    variant,
+  });
+
+  if (paymentMethod === "telegram_stars") {
+    await ctx.reply(
+      `${uiText.checkout}\n\nЗаказ: ${issued.order.publicId}\n` +
+        `Цена: ${issued.order.pricingSnapshot.rubPriceFinal} RUB\n` +
+        `К оплате: ${issued.order.pricingSnapshot.xtrPrice} XTR\n\n` +
+        `Способ оплаты: ⭐ Telegram Stars`,
+    );
+    return;
+  }
+
+  if (!issued.paymentUrl) {
+    await ctx.reply("Не удалось создать счёт Crypto Bot. Попробуйте ещё раз позже.");
+    return;
+  }
+
+  await ctx.reply(
+    `${uiText.checkout}\n\nЗаказ: ${issued.order.publicId}\n` +
+      `Цена: ${issued.order.pricingSnapshot.rubPriceFinal} RUB\n` +
+      `Способ оплаты: 💎 Crypto Bot\n\n` +
+      `Нажмите кнопку ниже, чтобы открыть инвойс и оплатить заказ.`,
+    {
+      reply_markup: buildCryptoInvoiceKeyboard(issued.paymentUrl),
+    },
+  );
+}
+
 async function renderHistoryUi(ctx: BotContext): Promise<void> {
   if (!ctx.appUser) {
     return;
@@ -326,7 +438,7 @@ async function renderHistoryUi(ctx: BotContext): Promise<void> {
     return;
   }
 
-  const lines = ["История заказов:\n"];
+  const lines = ["📦 История заказов:\n"];
   for (const order of orders) {
     lines.push(`• ${order.publicId} — ${order.status}\n  ${order.pricingSnapshot.rubPriceFinal} RUB / ${order.pricingSnapshot.xtrPrice} XTR`);
   }
@@ -342,9 +454,9 @@ async function renderProfileUi(ctx: BotContext): Promise<void> {
   await renderUiScreen(
     ctx,
     `${uiText.profile}\n\n` +
-      `Telegram ID: ${ctx.appUser.telegramId}\n` +
-      `Статус риска: ${ctx.appUser.riskLevel}\n` +
-      `Реферальный код: ${ctx.appUser.referralCode}`,
+      `🆔 Telegram ID: ${ctx.appUser.telegramId}\n` +
+      `🛡️ Статус риска: ${ctx.appUser.riskLevel}\n` +
+      `🎟️ Реферальный код: ${ctx.appUser.referralCode}`,
     buildMainMenuKeyboard(),
   );
 }
@@ -352,7 +464,7 @@ async function renderProfileUi(ctx: BotContext): Promise<void> {
 async function renderSupportUi(ctx: BotContext): Promise<void> {
   await renderUiScreen(
     ctx,
-    `${uiText.supportIntro}\n\nФормат для открытия обращения:\n/support Тема | Описание`,
+    `${uiText.supportIntro}\n\n📝 Формат для открытия обращения:\n/support Тема | Описание`,
     buildMainMenuKeyboard(),
   );
 }
@@ -367,9 +479,9 @@ async function renderAdminUi(ctx: BotContext): Promise<void> {
   await renderUiScreen(
     ctx,
     `${adminText.dashboard}\n\n` +
-      `Manual review: ${summary.manualReviewCount}\n` +
-      `Текущий курс: ${summary.currentRate ? `${(summary.currentRate as { rateRubPerStar: number }).rateRubPerStar} RUB/XTR` : "не задан"}`,
-    new InlineKeyboard().text("Главное меню", "menu_home").row().text("Обновить курс", "admin_rate_help"),
+      `🛡️ Manual review: ${summary.manualReviewCount}\n` +
+      `💱 Текущий курс: ${summary.currentRate ? `${(summary.currentRate as { rateRubPerStar: number }).rateRubPerStar} RUB/XTR` : "не задан"}`,
+    new InlineKeyboard().text("🏠 Главное меню", "menu_home").row().text("💱 Обновить курс", "admin_rate_help"),
   );
 }
 
@@ -409,13 +521,14 @@ async function checkoutVariantUi(ctx: BotContext, variantId: string): Promise<vo
   const updatedOrder = await ctx.services.orderService.issueInvoice({
     user: ctx.appUser,
     orderId: order.id,
+    paymentMethod: "telegram_stars",
     variant,
   });
 
   await ctx.reply(
-    `${uiText.checkout}\n\nЗаказ: ${updatedOrder.publicId}\n` +
-      `Цена: ${updatedOrder.pricingSnapshot.rubPriceFinal} RUB\n` +
-      `К оплате: ${updatedOrder.pricingSnapshot.xtrPrice} XTR\n\n` +
+    `${uiText.checkout}\n\nЗаказ: ${updatedOrder.order.publicId}\n` +
+      `Цена: ${updatedOrder.order.pricingSnapshot.rubPriceFinal} RUB\n` +
+      `К оплате: ${updatedOrder.order.pricingSnapshot.xtrPrice} XTR\n\n` +
       `Оплата производится через Telegram Stars`,
   );
 }
@@ -650,7 +763,23 @@ export function createBot(env: Env): { bot: Bot<BotContext>; webhook: (request: 
       return;
     }
     if (data.action === "checkout" && data.id) {
-      await checkoutVariantUi(ctx, data.id);
+      await renderCheckoutMethodUi(ctx, data.id);
+      return;
+    }
+    if (data.action === "checkout_back" && data.id) {
+      const variant = await ctx.services.repositories.products.findVariantById(data.id);
+      if (variant) {
+        await renderProductUi(ctx, variant.productId);
+      } else {
+        await renderCatalogUi(ctx);
+      }
+      return;
+    }
+    if (data.action === "checkout_pay" && data.id && data.extra) {
+      if (data.extra === "telegram_stars" || data.extra === "crypto_bot") {
+        await startCheckoutWithMethodUi(ctx, data.id, data.extra);
+        return;
+      }
       return;
     }
     if (ctx.appAdmin && data.action === "admin_rate_help") {
@@ -661,3 +790,6 @@ export function createBot(env: Env): { bot: Bot<BotContext>; webhook: (request: 
   const webhook = webhookCallback(bot, "cloudflare-mod");
   return { bot, webhook };
 }
+
+
+

@@ -10,6 +10,7 @@ import type {
   OrderCancellationReason,
   OrderReviewStatus,
   OrderStatus,
+  PaymentMethod,
   PaymentStatus,
   PromoType,
   SupportMessageAuthor,
@@ -136,10 +137,14 @@ export interface Payment {
   id: string;
   orderId: string;
   userId: string;
+  paymentMethod: PaymentMethod;
   telegramPaymentChargeId: string | null;
   telegramInvoicePayload: string;
   telegramCurrency: "XTR";
   amountXtr: number;
+  providerInvoiceId: string | null;
+  providerCurrency: string | null;
+  providerAmount: string | null;
   status: PaymentStatus;
   providerData: Record<string, unknown>;
   idempotencyKey: string;

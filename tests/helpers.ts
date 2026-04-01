@@ -80,6 +80,11 @@ export function createServiceDeps(overrides: Partial<ServiceDeps> = {}): Service
       sendInvoice: vi.fn(async () => ({ message_id: 1 })),
       answerPreCheckoutQuery: vi.fn(async () => undefined),
     },
+    cryptoPay: {
+      isEnabled: () => false,
+      createInvoice: vi.fn(),
+      verifyWebhookSignature: vi.fn(async () => false),
+    },
     repositories: {
       users: {
         updateRiskState: vi.fn(),
