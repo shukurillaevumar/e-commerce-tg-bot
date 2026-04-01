@@ -1,0 +1,60 @@
+name = "telegram-stars-store-bot"
+main = "src/index.ts"
+compatibility_date = "2026-04-01"
+workers_dev = true
+
+[vars]
+APP_ENV = "development"
+
+[observability]
+enabled = true
+
+[triggers]
+crons = ["*/5 * * * *", "*/15 * * * *"]
+
+[[kv_namespaces]]
+binding = "APP_KV"
+id = "replace-with-dev-kv-id"
+preview_id = "replace-with-dev-kv-preview-id"
+
+[[d1_databases]]
+binding = "BOT_DB"
+database_name = "telegram-stars-store-bot-dev"
+database_id = "replace-with-dev-d1-id"
+
+[env.staging]
+name = "telegram-stars-store-bot-staging"
+
+[env.staging.vars]
+APP_ENV = "staging"
+
+[[env.staging.kv_namespaces]]
+binding = "APP_KV"
+id = "replace-with-staging-kv-id"
+preview_id = "replace-with-staging-kv-preview-id"
+
+[[env.staging.d1_databases]]
+binding = "BOT_DB"
+database_name = "telegram-stars-store-bot-staging"
+database_id = "replace-with-staging-d1-id"
+
+[env.staging.triggers]
+crons = ["*/5 * * * *", "*/15 * * * *"]
+
+[env.production]
+name = "telegram-stars-store-bot-production"
+
+[env.production.vars]
+APP_ENV = "production"
+
+[[env.production.kv_namespaces]]
+binding = "APP_KV"
+id = "replace-with-production-kv-id"
+
+[[env.production.d1_databases]]
+binding = "BOT_DB"
+database_name = "telegram-stars-store-bot-production"
+database_id = "replace-with-production-d1-id"
+
+[env.production.triggers]
+crons = ["*/5 * * * *", "*/15 * * * *"]

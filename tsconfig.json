@@ -1,0 +1,47 @@
+{
+  "compilerOptions": {
+    "target": "ES2023",
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "strict": true,
+    "noUncheckedIndexedAccess": true,
+    "noFallthroughCasesInSwitch": true,
+    "allowSyntheticDefaultImports": true,
+    "isolatedModules": true,
+    "resolveJsonModule": true,
+    "skipLibCheck": true,
+    "lib": [
+      "ES2023"
+    ],
+    "types": [
+      "@cloudflare/workers-types",
+      "node"
+    ],
+    "baseUrl": ".",
+    "paths": {
+      "@bot/*": [
+        "src/bot/*"
+      ],
+      "@domain/*": [
+        "src/domain/*"
+      ],
+      "@infra/*": [
+        "src/infra/*"
+      ],
+      "@repositories/*": [
+        "src/repositories/*"
+      ],
+      "@services/*": [
+        "src/services/*"
+      ],
+      "@utils/*": [
+        "src/utils/*"
+      ]
+    }
+  },
+  "include": [
+    "src/**/*.ts",
+    "tests/**/*.ts",
+    "vitest.config.ts"
+  ]
+}
