@@ -1,11 +1,18 @@
 import { Bot, InlineKeyboard, webhookCallback } from "grammy";
 import { adminText, uiText } from "@domain/messages";
 import type { ProductVariant } from "@domain/models";
+import { activeUiMessageKey } from "@infra/kv";
 import { createServiceContainer, type ServiceContainer } from "@services/container";
 import type { Env } from "@infra/bindings";
 import type { BotContext } from "@bot/context";
 import { buildCatalogKeyboard, buildMainMenuKeyboard, buildProductKeyboard } from "@bot/keyboards";
 import { decodeCallbackData } from "@utils/callback-data";
+
+const ACTIVE_UI_TTL_SECONDS = 60 * 60 * 24 * 14;
+
+interface ActiveUiState {
+  messageId: number;
+}
 
 function formatVariantSummary(variant: ProductVariant, rub: number, xtr: number): string {
   const parts = [variant.title, `Цена: ${rub} RUB`, `К оплате: ${xtr} XTR`];
@@ -16,6 +23,90 @@ function formatVariantSummary(variant: ProductVariant, rub: number, xtr: number)
     parts.push(`Тариф: ${variant.tariff}`);
   }
   return parts.join("\n");
+}
+
+function currentUiMessageId(ctx: BotContext): number | null {
+  const callbackMessage = ctx.callbackQuery?.message;
+  if (!callbackMessage || !("message_id" in callbackMessage)) {
+    return null;
+  }
+  return callbackMessage.message_id;
+}
+
+function isMessageNotModifiedError(error: unknown): boolean {
+  return error instanceof Error && error.message.includes("message is not modified");
+}
+
+function isExpiredCallbackQueryError(error: unknown): boolean {
+  return (
+    error instanceof Error &&
+    error.message.includes("answerCallbackQuery") &&
+    (error.message.includes("query is too old") || error.message.includes("query ID is invalid"))
+  );
+}
+
+async function getActiveUiState(ctx: BotContext): Promise<ActiveUiState | null> {
+  if (!ctx.chat) {
+    return null;
+  }
+  return ctx.services.deps.kv.get<ActiveUiState>(activeUiMessageKey(ctx.chat.id));
+}
+
+async function setActiveUiMessage(ctx: BotContext, messageId: number): Promise<void> {
+  if (!ctx.chat) {
+    return;
+  }
+  await ctx.services.deps.kv.put(activeUiMessageKey(ctx.chat.id), JSON.stringify({ messageId }), ACTIVE_UI_TTL_SECONDS);
+}
+
+async function clearActiveUiMessage(ctx: BotContext): Promise<void> {
+  if (!ctx.chat) {
+    return;
+  }
+  await ctx.services.deps.kv.delete(activeUiMessageKey(ctx.chat.id));
+}
+
+async function deleteTrackedUiMessage(ctx: BotContext, excludeMessageId?: number | null): Promise<void> {
+  if (!ctx.chat) {
+    return;
+  }
+
+  const activeUi = await getActiveUiState(ctx);
+  if (!activeUi || activeUi.messageId === excludeMessageId) {
+    return;
+  }
+
+  try {
+    await ctx.api.deleteMessage(ctx.chat.id, activeUi.messageId);
+  } catch {
+    // Ignore stale or already deleted messages.
+  }
+
+  await clearActiveUiMessage(ctx);
+}
+
+async function renderUiScreen(ctx: BotContext, text: string, replyMarkup: InlineKeyboard): Promise<void> {
+  const messageId = currentUiMessageId(ctx);
+  if (messageId !== null) {
+    try {
+      await ctx.editMessageText(text, {
+        reply_markup: replyMarkup,
+      });
+      await setActiveUiMessage(ctx, messageId);
+      return;
+    } catch (error) {
+      if (isMessageNotModifiedError(error)) {
+        await setActiveUiMessage(ctx, messageId);
+        return;
+      }
+    }
+  }
+
+  await deleteTrackedUiMessage(ctx);
+  const sent = await ctx.reply(text, {
+    reply_markup: replyMarkup,
+  });
+  await setActiveUiMessage(ctx, sent.message_id);
 }
 
 async function hydrateActor(ctx: BotContext): Promise<void> {
@@ -38,9 +129,7 @@ async function hydrateActor(ctx: BotContext): Promise<void> {
 
 async function renderCatalog(ctx: BotContext): Promise<void> {
   const catalog = await ctx.services.catalogService.getCatalog();
-  await ctx.reply(uiText.catalog, {
-    reply_markup: buildCatalogKeyboard(catalog),
-  });
+  await renderUiScreen(ctx, uiText.catalog, buildCatalogKeyboard(catalog));
 }
 
 async function renderProduct(ctx: BotContext, productId: string): Promise<void> {
@@ -175,6 +264,162 @@ async function renderAdmin(ctx: BotContext): Promise<void> {
   );
 }
 
+async function renderHomeUi(ctx: BotContext): Promise<void> {
+  await renderUiScreen(ctx, uiText.welcome, buildMainMenuKeyboard());
+}
+
+async function renderCatalogUi(ctx: BotContext): Promise<void> {
+  const catalog = await ctx.services.catalogService.getCatalog();
+  await deleteTrackedUiMessage(ctx, currentUiMessageId(ctx));
+
+  const catalogImageUrl = ctx.services.deps.env.CATALOG_IMAGE_URL?.trim();
+  const sent = catalogImageUrl
+    ? await ctx.replyWithPhoto(catalogImageUrl, {
+        caption: uiText.catalog,
+        reply_markup: buildCatalogKeyboard(catalog),
+      })
+    : await ctx.reply(uiText.catalog, {
+        reply_markup: buildCatalogKeyboard(catalog),
+      });
+  await setActiveUiMessage(ctx, sent.message_id);
+}
+
+async function renderProductUi(ctx: BotContext, productId: string): Promise<void> {
+  if (!ctx.appUser) {
+    return;
+  }
+
+  const catalog = await ctx.services.catalogService.getCatalog();
+  const item = catalog.find((entry) => entry.product.id === productId);
+  if (!item) {
+    await renderUiScreen(ctx, "Товар не найден.", buildMainMenuKeyboard());
+    return;
+  }
+
+  const buttons: Array<{ id: string; label: string }> = [];
+  const lines = [`${uiText.productCard}\n`, item.product.title, item.product.description, ""];
+
+  for (const variant of item.variants) {
+    const quote = await ctx.services.pricingService.quoteVariant({
+      variantId: variant.id,
+      user: ctx.appUser,
+    });
+    buttons.push({
+      id: variant.id,
+      label: `${variant.title} • ${quote.snapshot.rubPriceFinal} RUB / ${quote.snapshot.xtrPrice} XTR`,
+    });
+    lines.push(formatVariantSummary(variant, quote.snapshot.rubPriceFinal, quote.snapshot.xtrPrice));
+    lines.push("");
+  }
+
+  await renderUiScreen(ctx, lines.join("\n"), buildProductKeyboard(productId, buttons));
+}
+
+async function renderHistoryUi(ctx: BotContext): Promise<void> {
+  if (!ctx.appUser) {
+    return;
+  }
+
+  const orders = await ctx.services.repositories.orders.listByUserId(ctx.appUser.id);
+  if (orders.length === 0) {
+    await renderUiScreen(ctx, uiText.historyEmpty, buildMainMenuKeyboard());
+    return;
+  }
+
+  const lines = ["История заказов:\n"];
+  for (const order of orders) {
+    lines.push(`• ${order.publicId} — ${order.status}\n  ${order.pricingSnapshot.rubPriceFinal} RUB / ${order.pricingSnapshot.xtrPrice} XTR`);
+  }
+
+  await renderUiScreen(ctx, lines.join("\n"), buildMainMenuKeyboard());
+}
+
+async function renderProfileUi(ctx: BotContext): Promise<void> {
+  if (!ctx.appUser) {
+    return;
+  }
+
+  await renderUiScreen(
+    ctx,
+    `${uiText.profile}\n\n` +
+      `Telegram ID: ${ctx.appUser.telegramId}\n` +
+      `Статус риска: ${ctx.appUser.riskLevel}\n` +
+      `Реферальный код: ${ctx.appUser.referralCode}`,
+    buildMainMenuKeyboard(),
+  );
+}
+
+async function renderSupportUi(ctx: BotContext): Promise<void> {
+  await renderUiScreen(
+    ctx,
+    `${uiText.supportIntro}\n\nФормат для открытия обращения:\n/support Тема | Описание`,
+    buildMainMenuKeyboard(),
+  );
+}
+
+async function renderAdminUi(ctx: BotContext): Promise<void> {
+  if (!ctx.appAdmin) {
+    await renderUiScreen(ctx, adminText.accessDenied, buildMainMenuKeyboard());
+    return;
+  }
+
+  const summary = await ctx.services.adminService.getDashboardSummary();
+  await renderUiScreen(
+    ctx,
+    `${adminText.dashboard}\n\n` +
+      `Manual review: ${summary.manualReviewCount}\n` +
+      `Текущий курс: ${summary.currentRate ? `${(summary.currentRate as { rateRubPerStar: number }).rateRubPerStar} RUB/XTR` : "не задан"}`,
+    new InlineKeyboard().text("Главное меню", "menu_home").row().text("Обновить курс", "admin_rate_help"),
+  );
+}
+
+async function checkoutVariantUi(ctx: BotContext, variantId: string): Promise<void> {
+  if (!ctx.appUser) {
+    return;
+  }
+
+  const variant = await ctx.services.repositories.products.findVariantById(variantId);
+  if (!variant) {
+    await renderUiScreen(ctx, "Пакет не найден.", buildMainMenuKeyboard());
+    return;
+  }
+
+  const { order } = await ctx.services.orderService.createCheckoutOrder({
+    user: ctx.appUser,
+    variantId,
+  });
+
+  if (order.requiresManualReview) {
+    await renderUiScreen(ctx, uiText.suspiciousBlocked, buildMainMenuKeyboard());
+    return;
+  }
+
+  const uiMessageId = currentUiMessageId(ctx);
+  if (uiMessageId !== null && ctx.chat) {
+    try {
+      await ctx.api.deleteMessage(ctx.chat.id, uiMessageId);
+    } catch {
+      // Ignore stale message deletion errors before checkout.
+    }
+  } else {
+    await deleteTrackedUiMessage(ctx);
+  }
+  await clearActiveUiMessage(ctx);
+
+  const updatedOrder = await ctx.services.orderService.issueInvoice({
+    user: ctx.appUser,
+    orderId: order.id,
+    variant,
+  });
+
+  await ctx.reply(
+    `${uiText.checkout}\n\nЗаказ: ${updatedOrder.publicId}\n` +
+      `Цена: ${updatedOrder.pricingSnapshot.rubPriceFinal} RUB\n` +
+      `К оплате: ${updatedOrder.pricingSnapshot.xtrPrice} XTR\n\n` +
+      `Оплата производится через Telegram Stars`,
+  );
+}
+
 export function createBot(env: Env): { bot: Bot<BotContext>; webhook: (request: Request) => Promise<Response> } {
   const services = createServiceContainer(env);
   const bot = new Bot<BotContext>(env.BOT_TOKEN);
@@ -196,15 +441,13 @@ export function createBot(env: Env): { bot: Bot<BotContext>; webhook: (request: 
   });
 
   bot.command("start", async (ctx) => {
-    await ctx.reply(uiText.welcome, {
-      reply_markup: buildMainMenuKeyboard(),
-    });
+    await renderHomeUi(ctx as BotContext);
   });
 
-  bot.command("catalog", renderCatalog);
-  bot.command("orders", renderHistory);
-  bot.command("profile", renderProfile);
-  bot.command("admin", renderAdmin);
+  bot.command("catalog", renderCatalogUi);
+  bot.command("orders", renderHistoryUi);
+  bot.command("profile", renderProfileUi);
+  bot.command("admin", renderAdminUi);
   bot.command("support", async (ctx) => {
     if (!ctx.appUser) {
       return;
@@ -216,7 +459,7 @@ export function createBot(env: Env): { bot: Bot<BotContext>; webhook: (request: 
     const message = messageParts.join("|").trim();
 
     if (!subject || !message) {
-      await renderSupport(ctx);
+      await renderSupportUi(ctx);
       return;
     }
 
@@ -369,34 +612,45 @@ export function createBot(env: Env): { bot: Bot<BotContext>; webhook: (request: 
 
   bot.on("callback_query:data", async (ctx) => {
     const data = decodeCallbackData(ctx.callbackQuery.data);
-    await ctx.answerCallbackQuery();
+    try {
+      await ctx.answerCallbackQuery();
+    } catch (error) {
+      if (!isExpiredCallbackQueryError(error)) {
+        throw error;
+      }
+      services.deps.logger.warn("callback_query_expired", {
+        updateId: ctx.update.update_id,
+        callbackQueryId: ctx.callbackQuery.id,
+        data: ctx.callbackQuery.data,
+      });
+    }
 
     if (data.action === "menu_home") {
-      await ctx.reply(uiText.welcome, { reply_markup: buildMainMenuKeyboard() });
+      await renderHomeUi(ctx);
       return;
     }
     if (data.action === "menu_catalog") {
-      await renderCatalog(ctx);
+      await renderCatalogUi(ctx);
       return;
     }
     if (data.action === "menu_history") {
-      await renderHistory(ctx);
+      await renderHistoryUi(ctx);
       return;
     }
     if (data.action === "menu_profile") {
-      await renderProfile(ctx);
+      await renderProfileUi(ctx);
       return;
     }
     if (data.action === "menu_support") {
-      await renderSupport(ctx);
+      await renderSupportUi(ctx);
       return;
     }
     if (data.action === "product" && data.id) {
-      await renderProduct(ctx, data.id);
+      await renderProductUi(ctx, data.id);
       return;
     }
     if (data.action === "checkout" && data.id) {
-      await checkoutVariant(ctx, data.id);
+      await checkoutVariantUi(ctx, data.id);
       return;
     }
     if (ctx.appAdmin && data.action === "admin_rate_help") {

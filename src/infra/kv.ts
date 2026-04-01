@@ -53,3 +53,7 @@ export function rateLimitKey(scope: string, actorId: string, bucket: string): st
 export function checkoutStateKey(userId: string): string {
   return `checkout_state:${userId}`;
 }
+
+export function activeUiMessageKey(chatId: number | string): string {
+  return `active_ui:${chatId}`;
+}

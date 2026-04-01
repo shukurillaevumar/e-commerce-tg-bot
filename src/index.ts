@@ -1,6 +1,7 @@
 import { createBot } from "@bot/build-bot";
 import type { Env } from "@infra/bindings";
 import { text, toErrorResponse } from "@infra/http";
+import { createLogger } from "@infra/logger";
 import { createServiceContainer } from "@services/container";
 
 async function handleFetch(request: Request, env: Env): Promise<Response> {
@@ -36,13 +37,27 @@ async function handleScheduled(env: Env): Promise<void> {
 
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
+    const logger = createLogger({ env: env.APP_ENV });
     try {
       return await handleFetch(request, env);
     } catch (error) {
+      logger.error("fetch_unhandled_error", {
+        error: error instanceof Error ? error.message : String(error),
+        path: new URL(request.url).pathname,
+        method: request.method,
+      });
       return toErrorResponse(error);
     }
   },
   async scheduled(_controller: ScheduledController, env: Env): Promise<void> {
-    await handleScheduled(env);
+    const logger = createLogger({ env: env.APP_ENV });
+    try {
+      await handleScheduled(env);
+    } catch (error) {
+      logger.error("scheduled_unhandled_error", {
+        error: error instanceof Error ? error.message : String(error),
+      });
+      throw error;
+    }
   },
 };

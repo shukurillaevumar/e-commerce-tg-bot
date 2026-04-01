@@ -14,29 +14,32 @@ crons = ["*/5 * * * *", "*/15 * * * *"]
 
 [[kv_namespaces]]
 binding = "APP_KV"
-id = "replace-with-dev-kv-id"
-preview_id = "replace-with-dev-kv-preview-id"
+id = "bf750ddf262f4510808defa2baf17a53"
+preview_id = "9185ce6c3dc140618a4ccd47c9564269"
 
 [[d1_databases]]
 binding = "BOT_DB"
-database_name = "telegram-stars-store-bot-dev"
-database_id = "replace-with-dev-d1-id"
+database_name = "telegram-stars-store-bot-development"
+database_id = "73d268cd-78ba-4890-9751-a8b840e0a114"
 
 [env.staging]
 name = "telegram-stars-store-bot-staging"
 
 [env.staging.vars]
 APP_ENV = "staging"
+BOT_WEBHOOK_PATH = "/webhook"
+CATALOG_IMAGE_URL = "https://<your-domain>/catalog.png"
+
 
 [[env.staging.kv_namespaces]]
 binding = "APP_KV"
-id = "replace-with-staging-kv-id"
-preview_id = "replace-with-staging-kv-preview-id"
+id = "039bdbff78eb47098eef03efc9e4ce8c"
+preview_id = "77c880bab59141fbb35747aeaf36c7fa"
 
 [[env.staging.d1_databases]]
 binding = "BOT_DB"
 database_name = "telegram-stars-store-bot-staging"
-database_id = "replace-with-staging-d1-id"
+database_id = "b0e93450-31ac-4335-81e6-db66c85cc420"
 
 [env.staging.triggers]
 crons = ["*/5 * * * *", "*/15 * * * *"]
@@ -46,15 +49,18 @@ name = "telegram-stars-store-bot-production"
 
 [env.production.vars]
 APP_ENV = "production"
+BOT_WEBHOOK_PATH = "/webhook"
+CATALOG_IMAGE_URL = "https://<your-domain>/catalog.png"
+
 
 [[env.production.kv_namespaces]]
 binding = "APP_KV"
-id = "replace-with-production-kv-id"
+id = "25257b96974b4d429dd83fb01e42410c"
 
 [[env.production.d1_databases]]
 binding = "BOT_DB"
 database_name = "telegram-stars-store-bot-production"
-database_id = "replace-with-production-d1-id"
+database_id = "73d268cd-78ba-4890-9751-a8b840e0a114"
 
 [env.production.triggers]
 crons = ["*/5 * * * *", "*/15 * * * *"]
