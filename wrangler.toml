@@ -15,6 +15,12 @@ APP_TIMEZONE = "Asia/Tashkent"
 DEFAULT_LANGUAGE = "ru"
 PAYMENT_CURRENCY = "XTR"
 DEFAULT_EXCHANGE_RATE_RUB_PER_XTR = "1"
+MAIN_PAGE_IMAGE_URL = "https://cdn.jsdelivr.net/gh/shukurillaevumar/e-commerce-tg-bot@main/public/MainPage.png"
+ORDERS_PAGE_IMAGE_URL = "https://cdn.jsdelivr.net/gh/shukurillaevumar/e-commerce-tg-bot@main/public/OrdersPage.png"
+PROFILE_PAGE_IMAGE_URL = "https://cdn.jsdelivr.net/gh/shukurillaevumar/e-commerce-tg-bot@main/public/ProfilePage.png"
+SETTINGS_PAGE_IMAGE_URL = "https://cdn.jsdelivr.net/gh/shukurillaevumar/e-commerce-tg-bot@main/public/SettingsPage.png"
+SUPPORT_PAGE_IMAGE_URL = "https://cdn.jsdelivr.net/gh/shukurillaevumar/e-commerce-tg-bot@main/public/SupportPage.png"
+ADMIN_PAGE_IMAGE_URL = "https://cdn.jsdelivr.net/gh/shukurillaevumar/e-commerce-tg-bot@main/public/AdminPage.png"
 
 [observability]
 enabled = true
@@ -47,6 +53,12 @@ APP_TIMEZONE = "Asia/Tashkent"
 DEFAULT_LANGUAGE = "ru"
 PAYMENT_CURRENCY = "XTR"
 DEFAULT_EXCHANGE_RATE_RUB_PER_XTR = "1"
+MAIN_PAGE_IMAGE_URL = "https://cdn.jsdelivr.net/gh/shukurillaevumar/e-commerce-tg-bot@main/public/MainPage.png"
+ORDERS_PAGE_IMAGE_URL = "https://cdn.jsdelivr.net/gh/shukurillaevumar/e-commerce-tg-bot@main/public/OrdersPage.png"
+PROFILE_PAGE_IMAGE_URL = "https://cdn.jsdelivr.net/gh/shukurillaevumar/e-commerce-tg-bot@main/public/ProfilePage.png"
+SETTINGS_PAGE_IMAGE_URL = "https://cdn.jsdelivr.net/gh/shukurillaevumar/e-commerce-tg-bot@main/public/SettingsPage.png"
+SUPPORT_PAGE_IMAGE_URL = "https://cdn.jsdelivr.net/gh/shukurillaevumar/e-commerce-tg-bot@main/public/SupportPage.png"
+ADMIN_PAGE_IMAGE_URL = "https://cdn.jsdelivr.net/gh/shukurillaevumar/e-commerce-tg-bot@main/public/AdminPage.png"
 CATALOG_IMAGE_URL = "https://cdn.jsdelivr.net/gh/shukurillaevumar/e-commerce-tg-bot@main/public/CatalogImg.png"
 
 
@@ -78,6 +90,12 @@ APP_TIMEZONE = "Asia/Tashkent"
 DEFAULT_LANGUAGE = "ru"
 PAYMENT_CURRENCY = "XTR"
 DEFAULT_EXCHANGE_RATE_RUB_PER_XTR = "1"
+MAIN_PAGE_IMAGE_URL = "https://cdn.jsdelivr.net/gh/shukurillaevumar/e-commerce-tg-bot@main/public/MainPage.png"
+ORDERS_PAGE_IMAGE_URL = "https://cdn.jsdelivr.net/gh/shukurillaevumar/e-commerce-tg-bot@main/public/OrdersPage.png"
+PROFILE_PAGE_IMAGE_URL = "https://cdn.jsdelivr.net/gh/shukurillaevumar/e-commerce-tg-bot@main/public/ProfilePage.png"
+SETTINGS_PAGE_IMAGE_URL = "https://cdn.jsdelivr.net/gh/shukurillaevumar/e-commerce-tg-bot@main/public/SettingsPage.png"
+SUPPORT_PAGE_IMAGE_URL = "https://cdn.jsdelivr.net/gh/shukurillaevumar/e-commerce-tg-bot@main/public/SupportPage.png"
+ADMIN_PAGE_IMAGE_URL = "https://cdn.jsdelivr.net/gh/shukurillaevumar/e-commerce-tg-bot@main/public/AdminPage.png"
 CATALOG_IMAGE_URL = "https://cdn.jsdelivr.net/gh/shukurillaevumar/e-commerce-tg-bot@main/public/CatalogImg.png"
 
 [[env.production.kv_namespaces]]

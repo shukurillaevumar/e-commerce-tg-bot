@@ -17,6 +17,7 @@ import type {
   SupportTicketStatus,
   UserSegment,
 } from "@domain/enums";
+import type { StorefrontCurrency } from "@domain/currency";
 
 export interface User {
   id: string;
@@ -55,6 +56,8 @@ export interface Product {
   slug: string;
   title: string;
   description: string;
+  photoFileId: string | null;
+  photoUniqueId: string | null;
   isActive: boolean;
   sortOrder: number;
   availabilityMode: "unlimited" | "soft_limit" | "hard_limit" | "manual";
@@ -94,6 +97,8 @@ export interface ExchangeRate {
 export interface PricingSnapshot {
   rubPriceBase: number;
   rubPriceFinal: number;
+  displayCurrency: StorefrontCurrency;
+  displayAmount: number;
   rateVersion: number;
   rateValue: number;
   xtrPrice: number;

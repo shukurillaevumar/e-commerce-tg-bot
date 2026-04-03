@@ -117,7 +117,7 @@ export class OrderService {
       title: variant.title,
       description:
         `${uiText.checkout}\n\nЦена: ${order.pricingSnapshot.rubPriceFinal} RUB\n` +
-        `К оплате: ${order.pricingSnapshot.xtrPrice} XTR`,
+        `Оплата через Telegram Stars`,
       payload: invoiceSlug,
       startParameter: invoiceSlug.replaceAll(":", "_").slice(0, 64),
       prices: [{ label: `${variant.title} (${order.pricingSnapshot.rubPriceFinal} RUB)`, amount: order.pricingSnapshot.xtrPrice }],
@@ -147,3 +147,4 @@ export class OrderService {
     }
   }
 }
+

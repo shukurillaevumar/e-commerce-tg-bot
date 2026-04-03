@@ -54,6 +54,17 @@ export class OrderService {
       now,
     });
 
+    if (snapshot.promoCodeId) {
+      await this.deps.repositories.promoCodes.createRedemption({
+        promoCodeId: snapshot.promoCodeId,
+        userId: input.user.id,
+        orderId: order.id,
+        status: "applied",
+        rejectionReason: null,
+        now,
+      });
+    }
+
     if (!fraudDecision.allowed) {
       await this.notificationsService.notifyManualReview(order);
     }
@@ -112,11 +123,11 @@ export class OrderService {
       amountXtr: order.pricingSnapshot.xtrPrice,
       idempotencyKey: `${invoiceSlug}:${input.paymentMethod}:created`,
       pricingSnapshot: order.pricingSnapshot,
-      providerCurrency: input.paymentMethod === "telegram_stars" ? "XTR" : "RUB",
+      providerCurrency: input.paymentMethod === "telegram_stars" ? "XTR" : order.pricingSnapshot.displayCurrency,
       providerAmount:
         input.paymentMethod === "telegram_stars"
           ? String(order.pricingSnapshot.xtrPrice)
-          : order.pricingSnapshot.rubPriceFinal.toFixed(2),
+          : order.pricingSnapshot.displayAmount.toFixed(2),
       providerData: {
         invoiceExpiresAt,
       },
@@ -127,7 +138,7 @@ export class OrderService {
       const invoiceResponse = await this.deps.telegram.sendInvoice({
         chatId: input.user.telegramId,
         title: variant.title,
-        description: `${uiText.checkout}\n\nЦена: ${order.pricingSnapshot.rubPriceFinal} RUB\nК оплате: ${order.pricingSnapshot.xtrPrice} XTR`,
+        description: `${uiText.checkout}\n\nЦена: ${order.pricingSnapshot.rubPriceFinal} RUB\nОплата через Telegram Stars`,
         payload: invoiceSlug,
         startParameter: invoiceSlug.replaceAll(":", "_").slice(0, 64),
         prices: [{ label: `${variant.title} (${order.pricingSnapshot.rubPriceFinal} RUB)`, amount: order.pricingSnapshot.xtrPrice }],
@@ -148,7 +159,8 @@ export class OrderService {
     }
 
     const cryptoInvoice = await this.deps.cryptoPay.createInvoice({
-      amountRub: order.pricingSnapshot.rubPriceFinal,
+      amount: order.pricingSnapshot.displayAmount,
+      currency: order.pricingSnapshot.displayCurrency,
       description: `${variant.title} • ${order.publicId}`,
       payload: invoiceSlug,
       expiresInSeconds: invoiceLifetimeMinutes * 60,
@@ -187,3 +199,4 @@ export class OrderService {
     }
   }
 }
+

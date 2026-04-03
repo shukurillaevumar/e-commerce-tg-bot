@@ -57,3 +57,7 @@ export function checkoutStateKey(userId: string): string {
 export function activeUiMessageKey(chatId: number | string): string {
   return `active_ui:${chatId}`;
 }
+
+export function adminFlowStateKey(chatId: number | string): string {
+  return `admin_flow:${chatId}`;
+}

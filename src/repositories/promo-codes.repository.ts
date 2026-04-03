@@ -39,9 +39,30 @@ function mapPromoCode(row: PromoCodeRow | null): PromoCode | null {
 export class PromoCodesRepository {
   constructor(private readonly db: D1Runner) {}
 
+  async listRecent(limit = 20): Promise<PromoCode[]> {
+    const rows = await this.db.all<PromoCodeRow>(`${PROMO_CODE_SELECT} ORDER BY created_at DESC LIMIT ?`, [limit]);
+    return rows.map((row) => mapPromoCode(row) as PromoCode);
+  }
+
   async findByCode(code: string): Promise<PromoCode | null> {
     const row = await this.db.first<PromoCodeRow>(`${PROMO_CODE_SELECT} WHERE code = ?`, [code.toUpperCase()]);
     return mapPromoCode(row);
+  }
+
+  async countAppliedTotal(promoCodeId: string): Promise<number> {
+    const row = await this.db.first<{ total: number }>(
+      "SELECT COUNT(*) AS total FROM promo_redemptions WHERE promo_code_id = ? AND status = 'applied'",
+      [promoCodeId],
+    );
+    return Number(row?.total ?? 0);
+  }
+
+  async countAppliedByUser(userId: string, promoCodeId: string): Promise<number> {
+    const row = await this.db.first<{ total: number }>(
+      "SELECT COUNT(*) AS total FROM promo_redemptions WHERE user_id = ? AND promo_code_id = ? AND status = 'applied'",
+      [userId, promoCodeId],
+    );
+    return Number(row?.total ?? 0);
   }
 
   async countUserAttempts(userId: string, promoCodeId: string): Promise<number> {

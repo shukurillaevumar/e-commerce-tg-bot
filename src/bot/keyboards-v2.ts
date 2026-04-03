@@ -1,13 +1,15 @@
-import { InlineKeyboard } from "grammy";
+﻿import { InlineKeyboard } from "grammy";
 import type { CatalogItem } from "@services/catalog.service";
 import { encodeCallbackData } from "@utils/callback-data";
 
 export function buildMainMenuKeyboard(): InlineKeyboard {
   return new InlineKeyboard()
     .text("🛍️ Каталог", encodeCallbackData("menu_catalog"))
-    .text("📦 История", encodeCallbackData("menu_history"))
+    .text("📦 Заказы", encodeCallbackData("menu_history"))
     .row()
     .text("👤 Профиль", encodeCallbackData("menu_profile"))
+    .text("⚙️ Настройки", encodeCallbackData("menu_settings"))
+    .row()
     .text("💬 Поддержка", encodeCallbackData("menu_support"));
 }
 

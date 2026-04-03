@@ -4,6 +4,12 @@ export interface Env {
   BOT_WEBHOOK_SECRET: string;
   BOT_WEBHOOK_PATH: string;
   BOT_USERNAME: string;
+  MAIN_PAGE_IMAGE_URL?: string;
+  ORDERS_PAGE_IMAGE_URL?: string;
+  PROFILE_PAGE_IMAGE_URL?: string;
+  SETTINGS_PAGE_IMAGE_URL?: string;
+  SUPPORT_PAGE_IMAGE_URL?: string;
+  ADMIN_PAGE_IMAGE_URL?: string;
   CATALOG_IMAGE_URL?: string;
   CRYPTO_PAY_API_TOKEN?: string;
   CRYPTO_PAY_WEBHOOK_PATH?: string;

@@ -33,7 +33,8 @@ export interface CryptoPayInvoicePaidUpdate {
 export interface CryptoPayGateway {
   isEnabled(): boolean;
   createInvoice(input: {
-    amountRub: number;
+    amount: number;
+    currency: "RUB" | "USD";
     description: string;
     payload: string;
     expiresInSeconds: number;
@@ -85,15 +86,16 @@ export class HttpCryptoPayGateway implements CryptoPayGateway {
   }
 
   async createInvoice(input: {
-    amountRub: number;
+    amount: number;
+    currency: "RUB" | "USD";
     description: string;
     payload: string;
     expiresInSeconds: number;
   }): Promise<CryptoPayInvoice> {
     const body: Record<string, unknown> = {
       currency_type: "fiat",
-      fiat: "RUB",
-      amount: input.amountRub.toFixed(2),
+      fiat: input.currency,
+      amount: input.amount.toFixed(2),
       description: input.description,
       payload: input.payload,
       expires_in: input.expiresInSeconds,

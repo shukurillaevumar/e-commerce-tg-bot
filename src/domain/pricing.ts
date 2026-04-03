@@ -1,8 +1,11 @@
 import type { PricingSnapshot } from "@domain/models";
+import type { StorefrontCurrency } from "@domain/currency";
 
 export interface PricingInput {
   rubPriceBase: number;
   rubPriceFinal: number;
+  displayCurrency: StorefrontCurrency;
+  displayAmount: number;
   rateVersion: number;
   rateValue: number;
   discountSource: PricingSnapshot["discountSource"];
@@ -27,9 +30,11 @@ export function buildPricingSnapshot(input: PricingInput): PricingSnapshot {
   return {
     rubPriceBase: input.rubPriceBase,
     rubPriceFinal: input.rubPriceFinal,
+    displayCurrency: input.displayCurrency,
+    displayAmount: input.displayAmount,
     rateVersion: input.rateVersion,
     rateValue: input.rateValue,
-    xtrPrice: convertRubToStars(input.rubPriceFinal, input.rateValue),
+    xtrPrice: input.rateValue > 0 ? convertRubToStars(input.rubPriceFinal, input.rateValue) : 0,
     discountSource: input.discountSource,
     discountType: input.discountType,
     discountValue: input.discountValue,
